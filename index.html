@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0f0f">
+<title>Lift Tracker</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --muted: #888;
+    --accent: #4a9eff;
+    --accent-dim: rgba(74,158,255,0.12);
+    --danger: #ff5f5f;
+    --danger-dim: rgba(255,95,95,0.1);
+    --success: #4caf7d;
+    --r: 12px;
+    --r-sm: 8px;
+    --tab-h: 64px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; font-size: 16px; overscroll-behavior: none; }
+
+  #app { display: flex; flex-direction: column; height: 100%; max-width: 480px; margin: 0 auto; }
+
+  /* Header */
+  .topbar { padding: max(env(safe-area-inset-top, 16px), 16px) 16px 12px; background: var(--bg); border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+  .topbar h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+  .topbar h1 span { color: var(--accent); }
+
+  /* Pages */
+  .pages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(var(--tab-h) + var(--safe-bottom) + 16px); }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Tab bar */
+  .tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; display: flex; background: rgba(15,15,15,0.92); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 0.5px solid var(--border); padding-bottom: var(--safe-bottom); z-index: 50; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 10px 4px; cursor: pointer; border: none; background: none; color: var(--muted); font-size: 10px; font-weight: 500; letter-spacing: 0.02em; transition: color .15s; min-height: var(--tab-h); }
+  .tab svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .tab.active { color: var(--accent); }
+
+  /* Form elements */
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  input[type=text], input[type=number], input[type=date], select {
+    width: 100%; background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--r-sm);
+    color: var(--text); font-size: 16px; padding: 13px 14px; margin-bottom: 14px; appearance: none; -webkit-appearance: none; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 13px 20px; border-radius: var(--r-sm); font-size: 15px; font-weight: 500; cursor: pointer; border: none; transition: opacity .15s, transform .1s; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #fff; width: 100%; }
+  .btn-primary:active { opacity: .85; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 0.5px solid var(--border2); }
+  .btn-ghost { background: none; color: var(--muted); border: 0.5px solid var(--border); padding: 10px 14px; font-size: 14px; }
+  .btn-danger { background: var(--danger-dim); color: var(--danger); border: 0.5px solid rgba(255,95,95,0.2); padding: 10px 14px; font-size: 14px; }
+  .btn-icon { background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--r-sm); width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .btn-icon svg { width: 18px; height: 18px; stroke: var(--muted); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .btn-icon.danger svg { stroke: var(--danger); }
+
+  /* Cards */
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 10px; }
+  .card-title { font-size: 15px; font-weight: 600; }
+  .card-meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+  /* Tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .tag { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+
+  /* Set rows */
+  .set-header { display: grid; grid-template-columns: 32px 1fr 1fr 42px; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .set-header span { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; text-align: center; }
+  .set-row { display: grid; grid-template-columns: 32px 1fr 1fr 42px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .set-row .set-num { font-size: 13px; color: var(--muted); text-align: center; font-weight: 500; }
+  .set-row input { margin-bottom: 0; padding: 12px 10px; text-align: center; }
+
+  /* Filters */
+  .filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+  .filter-pill { background: var(--surface2); border: 0.5px solid var(--border2); border-radius: 20px; padding: 8px 14px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap; transition: all .15s; }
+  .filter-pill.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  /* Section header */
+  .section-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; margin-top: 20px; }
+  .section-label:first-child { margin-top: 0; }
+
+  /* Entry cards */
+  .entry-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 10px; }
+  .entry-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .entry-actions { display: flex; gap: 7px; flex-shrink: 0; }
+  .entry-sets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .set-chip { background: var(--surface2); border: 0.5px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 12px; color: var(--muted); }
+  .set-chip strong { color: var(--text); }
+
+  /* Modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; display: flex; align-items: flex-end; }
+  .modal { background: var(--surface); border-radius: var(--r) var(--r) 0 0; border-top: 0.5px solid var(--border2); width: 100%; max-height: 90vh; overflow-y: auto; padding: 20px 16px max(var(--safe-bottom), 20px); }
+  .modal-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 0 auto 20px; }
+  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 20px; }
+
+  /* Lift chips in My Lifts */
+  .lift-item { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); margin-bottom: 8px; }
+  .lift-item-info { flex: 1; }
+  .lift-item-name { font-size: 15px; font-weight: 500; }
+
+  /* Chart */
+  .chart-wrap { position: relative; width: 100%; height: 260px; margin-top: 16px; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 14px; }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+  /* Row layout */
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row2 > * { min-width: 0; }
+
+  .divider { border: none; border-top: 0.5px solid var(--border); margin: 20px 0; }
+
+  .add-set-btn { display: flex; align-items: center; gap: 8px; background: none; border: 0.5px dashed var(--border2); border-radius: var(--r-sm); width: 100%; padding: 12px; color: var(--muted); font-size: 14px; cursor: pointer; margin-bottom: 16px; justify-content: center; }
+  .add-set-btn:active { opacity: .7; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1>Lift <span>Tracker</span></h1>
+  </div>
+
+  <div class="pages" id="pages">
+
+    <!-- LOG -->
+    <div class="page active" id="page-log">
+      <div class="row2" style="margin-bottom:2px">
+        <div>
+          <label>Date</label>
+          <input type="date" id="log-date">
+        </div>
+        <div>
+          <label>Exercise</label>
+          <select id="log-exercise" onchange="onExerciseChange()">
+            <option value="">Select…</option>
+          </select>
+        </div>
+      </div>
+      <div id="log-day-tags" style="margin-bottom:14px; min-height:10px"></div>
+
+      <div class="set-header">
+        <span></span><span>Weight (lbs)</span><span>Reps</span><span></span>
+      </div>
+      <div id="sets-container"></div>
+      <button class="add-set-btn" onclick="addSetRow('sets-container')">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add set
+      </button>
+      <button class="btn btn-primary" onclick="saveEntry()">Save workout</button>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="page" id="page-history">
+      <div class="section-label">Filter by day</div>
+      <div class="filters" id="hist-day-filters"></div>
+      <label>Exercise</label>
+      <select id="hist-exercise-filter" onchange="renderHistory()" style="margin-bottom:16px">
+        <option value="">All exercises</option>
+      </select>
+      <div id="history-list"></div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="page" id="page-chart">
+      <label>Exercise</label>
+      <select id="chart-exercise" onchange="renderChart()">
+        <option value="">Select exercise…</option>
+      </select>
+      <div class="chart-wrap">
+        <canvas id="progressChart" role="img" aria-label="Progress chart for selected lift"></canvas>
+      </div>
+      <div id="chart-empty" class="empty" style="display:none">
+        <div class="empty-icon">📈</div>
+        No data yet for this exercise.
+      </div>
+    </div>
+
+    <!-- MY LIFTS -->
+    <div class="page" id="page-lifts">
+      <div class="section-label">Add new lift</div>
+      <label>Lift name</label>
+      <input type="text" id="new-lift-name" placeholder="e.g. Cable bicep curl">
+      <label>Day types</label>
+      <div class="filters" id="new-lift-days"></div>
+      <button class="btn btn-primary" onclick="addLift()" style="margin-bottom:24px">Add lift</button>
+      <div class="section-label">Your lifts</div>
+      <div id="lifts-list"></div>
+    </div>
+
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tabbar">
+    <button class="tab active" onclick="showPage('log')" id="tab-log">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Log
+    </button>
+    <button class="tab" onclick="showPage('history')" id="tab-history">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      History
+    </button>
+    <button class="tab" onclick="showPage('chart')" id="tab-chart">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Progress
+    </button>
+    <button class="tab" onclick="showPage('lifts')" id="tab-lifts">
+      <svg viewBox="0 0 24 24"><path d="M6 4v16M18 4v16M3 8h3M18 8h3M3 16h3M18 16h3M6 12h12"/></svg>
+      Lifts
+    </button>
+  </div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal-bg" id="modal-edit" style="display:none" onclick="handleModalBgClick(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit entry</div>
+    <label>Date</label>
+    <input type="date" id="edit-date">
+    <label>Exercise</label>
+    <select id="edit-exercise" style="margin-bottom:16px"></select>
+    <div class="set-header">
+      <span></span><span>Weight (lbs)</span><span>Reps</span><span></span>
+    </div>
+    <div id="edit-sets-container"></div>
+    <button class="add-set-btn" onclick="addSetRow('edit-sets-container')">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add set
+    </button>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" onclick="saveEdit()" style="flex:1">Save</button>
+      <button class="btn btn-secondary" onclick="closeEdit()" style="flex:1">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const DAY_TYPES = ['Push – chest','Push – tris','Pull – back','Pull – bis','Legs'];
+const DAY_COLORS = {
+  'Push – chest': { bg:'rgba(24,95,165,0.15)', text:'#4a9eff', border:'rgba(74,158,255,0.3)' },
+  'Push – tris':  { bg:'rgba(15,110,86,0.15)',  text:'#2ec48a', border:'rgba(46,196,138,0.3)' },
+  'Pull – back':  { bg:'rgba(60,52,137,0.15)', text:'#9d8fff', border:'rgba(157,143,255,0.3)' },
+  'Pull – bis':   { bg:'rgba(153,53,86,0.15)',  text:'#ff7eb3', border:'rgba(255,126,179,0.3)' },
+  'Legs':         { bg:'rgba(153,60,29,0.15)',  text:'#ff8c5a', border:'rgba(255,140,90,0.3)' },
+};
+
+let db = loadDB();
+let editId = null;
+let chartInstance = null;
+let histDayFilter = '';
+
+function loadDB() {
+  try { const s = localStorage.getItem('lifttracker_v2'); if (s) return JSON.parse(s); } catch(e) {}
+  return {
+    lifts: [
+      {id:'l1',name:'Barbell squat',days:['Legs']},
+      {id:'l2',name:'Bench press',days:['Push – chest']},
+      {id:'l3',name:'Deadlift',days:['Pull – back']},
+      {id:'l4',name:'Overhead press',days:['Push – tris']},
+      {id:'l5',name:'Barbell row',days:['Pull – back']},
+    ],
+    entries: []
+  };
+}
+
+function saveDB() {
+  try { localStorage.setItem('lifttracker_v2', JSON.stringify(db)); } catch(e) {}
+}
+
+function uid() { return Math.random().toString(36).slice(2,10); }
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+  document.getElementById('pages').scrollTop = 0;
+  if (id === 'history') renderHistory();
+  if (id === 'chart') { populateChartExercises(); renderChart(); }
+  if (id === 'lifts') renderLiftsPage();
+  if (id === 'log') refreshLogSelects();
+}
+
+function tagsHTML(days) {
+  return days.map(d => {
+    const c = DAY_COLORS[d] || {bg:'#222',text:'#aaa',border:'#333'};
+    return `<span class="tag" style="background:${c.bg};color:${c.text};border:0.5px solid ${c.border}">${d}</span>`;
+  }).join('');
+}
+
+/* ---- LOG ---- */
+function refreshLogSelects() {
+  const sel = document.getElementById('log-exercise');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select…</option>';
+  db.lifts.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.id; o.textContent = l.name;
+    sel.appendChild(o);
+  });
+  if (cur) sel.value = cur;
+  onExerciseChange();
+}
+
+function onExerciseChange() {
+  const sel = document.getElementById('log-exercise');
+  const lift = db.lifts.find(l => l.id === sel.value);
+  const div = document.getElementById('log-day-tags');
+  div.innerHTML = lift && lift.days.length ? `<div class="tags">${tagsHTML(lift.days)}</div>` : '';
+}
+
+function addSetRow(containerId) {
+  const c = document.getElementById(containerId);
+  const idx = c.querySelectorAll('.set-row').length + 1;
+  const row = document.createElement('div');
+  row.className = 'set-row';
+  row.innerHTML = `
+    <div class="set-num">${idx}</div>
+    <input type="number" min="0" step="0.5" placeholder="0" inputmode="decimal">
+    <input type="number" min="0" step="1" placeholder="0" inputmode="numeric">
+    <button class="btn-icon danger" onclick="removeSet(this)" aria-label="Remove set">
+      <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  `;
+  c.appendChild(row);
+}
+
+function removeSet(btn) {
+  const c = btn.closest('[id$="sets-container"]');
+  btn.closest('.set-row').remove();
+  c.querySelectorAll('.set-row').forEach((r,i) => { r.querySelector('.set-num').textContent = i+1; });
+}
+
+function getSets(containerId) {
+  const sets = [];
+  document.getElementById(containerId).querySelectorAll('.set-row').forEach(r => {
+    const inputs = r.querySelectorAll('input');
+    const w = parseFloat(inputs[0].value) || 0;
+    const reps = parseInt(inputs[1].value) || 0;
+    if (w || reps) sets.push({w, reps});
+  });
+  return sets;
+}
+
+function saveEntry() {
+  const date = document.getElementById('log-date').value;
+  const exId = document.getElementById('log-exercise').value;
+  if (!date || !exId) { alert('Pick a date and exercise.'); return; }
+  const sets = getSets('sets-container');
+  if (!sets.length) { alert('Add at least one set.'); return; }
+  db.entries.unshift({id: uid(), date, exId, sets});
+  saveDB();
+  document.getElementById('sets-container').innerHTML = '';
+  document.getElementById('log-exercise').value = '';
+  document.getElementById('log-day-tags').innerHTML = '';
+  addSetRow('sets-container');
+  // Brief success flash
+  const btn = document.querySelector('#page-log .btn-primary');
+  const orig = btn.textContent;
+  btn.textContent = '✓ Saved!';
+  btn.style.background = '#4caf7d';
+  setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1400);
+}
+
+/* ---- HISTORY ---- */
+function renderHistDayFilters() {
+  const c = document.getElementById('hist-day-filters');
+  c.innerHTML = `<button class="filter-pill${histDayFilter===''?' active':''}" onclick="setHistDay('')">All</button>`;
+  DAY_TYPES.forEach(d => {
+    c.innerHTML += `<button class="filter-pill${histDayFilter===d?' active':''}" onclick="setHistDay('${d}')">${d}</button>`;
+  });
+}
+
+function setHistDay(d) { histDayFilter = d; renderHistory(); }
+
+function renderHistory() {
+  const sel = document.getElementById('hist-exercise-filter');
+  const exFilter = sel.value;
+  const curEx = exFilter;
+  sel.innerHTML = '<option value="">All exercises</option>';
+  db.lifts.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.id; o.textContent = l.name;
+    sel.appendChild(o);
+  });
+  if (curEx) sel.value = curEx;
+
+  renderHistDayFilters();
+
+  let entries = [...db.entries];
+  if (exFilter) entries = entries.filter(e => e.exId === exFilter);
+  if (histDayFilter) {
+    const dayLifts = new Set(db.lifts.filter(l => l.days.includes(histDayFilter)).map(l => l.id));
+    entries = entries.filter(e => dayLifts.has(e.exId));
+  }
+
+  const list = document.getElementById('history-list');
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🏋️</div>No entries yet.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  entries.forEach(e => {
+    const lift = db.lifts.find(l => l.id === e.exId);
+    const name = lift ? lift.name : 'Unknown lift';
+    const setsHTML = e.sets.map((s,i) =>
+      `<div class="set-chip">Set ${i+1} <strong>${s.w}lb × ${s.reps}</strong></div>`
+    ).join('');
+    const div = document.createElement('div');
+    div.className = 'entry-card';
+    div.innerHTML = `
+      <div class="entry-top">
+        <div style="flex:1;min-width:0">
+          <div class="card-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+          <div class="card-meta">${e.date}</div>
+          ${lift ? `<div class="tags" style="margin-top:8px">${tagsHTML(lift.days)}</div>` : ''}
+        </div>
+        <div class="entry-actions">
+          <button class="btn-icon" onclick="openEdit('${e.id}')" aria-label="Edit">
+            <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn-icon danger" onclick="deleteEntry('${e.id}')" aria-label="Delete">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="entry-sets">${setsHTML}</div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  db.entries = db.entries.filter(e => e.id !== id);
+  saveDB();
+  renderHistory();
+}
+
+/* ---- EDIT MODAL ---- */
+function openEdit(id) {
+  editId = id;
+  const e = db.entries.find(x => x.id === id);
+  document.getElementById('edit-date').value = e.date;
+  const sel = document.getElementById('edit-exercise');
+  sel.innerHTML = '';
+  db.lifts.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.id; o.textContent = l.name;
+    sel.appendChild(o);
+  });
+  sel.value = e.exId;
+  const c = document.getElementById('edit-sets-container');
+  c.innerHTML = '';
+  e.sets.forEach(s => {
+    addSetRow('edit-sets-container');
+    const rows = c.querySelectorAll('.set-row');
+    const last = rows[rows.length-1];
+    const inputs = last.querySelectorAll('input');
+    inputs[0].value = s.w; inputs[1].value = s.reps;
+  });
+  document.getElementById('modal-edit').style.display = 'flex';
+}
+
+function saveEdit() {
+  const e = db.entries.find(x => x.id === editId);
+  e.date = document.getElementById('edit-date').value;
+  e.exId = document.getElementById('edit-exercise').value;
+  e.sets = getSets('edit-sets-container');
+  saveDB();
+  closeEdit();
+  renderHistory();
+}
+
+function closeEdit() {
+  document.getElementById('modal-edit').style.display = 'none';
+  editId = null;
+}
+
+function handleModalBgClick(e) {
+  if (e.target === document.getElementById('modal-edit')) closeEdit();
+}
+
+/* ---- CHART ---- */
+function populateChartExercises() {
+  const sel = document.getElementById('chart-exercise');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select exercise…</option>';
+  db.lifts.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.id; o.textContent = l.name;
+    sel.appendChild(o);
+  });
+  if (cur) sel.value = cur;
+}
+
+function renderChart() {
+  const exId = document.getElementById('chart-exercise').value;
+  const empty = document.getElementById('chart-empty');
+  const wrap = document.querySelector('.chart-wrap');
+  if (!exId) { empty.style.display = 'none'; wrap.style.display = 'block'; if (chartInstance) { chartInstance.destroy(); chartInstance = null; } return; }
+  const entries = db.entries.filter(e => e.exId === exId).slice().sort((a,b) => a.date.localeCompare(b.date));
+  if (!entries.length) { empty.style.display = 'block'; wrap.style.display = 'none'; return; }
+  empty.style.display = 'none'; wrap.style.display = 'block';
+  const labels = entries.map(e => e.date.slice(5));
+  const data = entries.map(e => { const s = e.sets[0]; return s ? Math.round(s.w * s.reps * 10) / 10 : 0; });
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  chartInstance = new Chart(document.getElementById('progressChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Set 1 volume (lb×reps)',
+        data,
+        borderColor: '#4a9eff',
+        backgroundColor: 'rgba(74,158,255,0.08)',
+        pointBackgroundColor: '#4a9eff',
+        tension: 0.3,
+        fill: true,
+        borderWidth: 2,
+        pointRadius: 5,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888', font: { size: 11 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' }, border: { color: 'rgba(255,255,255,0.08)' } },
+        y: { ticks: { color: '#888', font: { size: 11 }, callback: v => `${v}` }, grid: { color: 'rgba(255,255,255,0.05)' }, border: { color: 'rgba(255,255,255,0.08)' }, beginAtZero: false }
+      }
+    }
+  });
+}
+
+/* ---- MY LIFTS ---- */
+function renderNewLiftDays() {
+  const c = document.getElementById('new-lift-days');
+  c.innerHTML = DAY_TYPES.map(d =>
+    `<button class="filter-pill" onclick="this.classList.toggle('active')">${d}</button>`
+  ).join('');
+}
+
+function addLift() {
+  const name = document.getElementById('new-lift-name').value.trim();
+  if (!name) { alert('Enter a lift name.'); return; }
+  const days = [...document.querySelectorAll('#new-lift-days .filter-pill.active')].map(b => b.textContent);
+  db.lifts.push({id: uid(), name, days});
+  saveDB();
+  document.getElementById('new-lift-name').value = '';
+  document.querySelectorAll('#new-lift-days .filter-pill').forEach(b => b.classList.remove('active'));
+  renderLiftsPage();
+  refreshLogSelects();
+}
+
+function renderLiftsPage() {
+  const list = document.getElementById('lifts-list');
+  if (!db.lifts.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">🏋️</div>No lifts yet.</div>'; return; }
+  list.innerHTML = '';
+  db.lifts.forEach(l => {
+    const div = document.createElement('div');
+    div.className = 'lift-item';
+    div.innerHTML = `
+      <div class="lift-item-info">
+        <div class="lift-item-name">${l.name}</div>
+        ${l.days.length ? `<div class="tags" style="margin-top:6px">${tagsHTML(l.days)}</div>` : ''}
+      </div>
+      <button class="btn-icon danger" onclick="removeLift('${l.id}')" aria-label="Delete ${l.name}">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function removeLift(id) {
+  if (!confirm('Remove this lift?')) return;
+  db.lifts = db.lifts.filter(l => l.id !== id);
+  saveDB();
+  renderLiftsPage();
+  refreshLogSelects();
+}
+
+/* ---- INIT ---- */
+document.getElementById('log-date').value = new Date().toISOString().slice(0,10);
+addSetRow('sets-container');
+refreshLogSelects();
+renderNewLiftDays();
+renderLiftsPage();
+</script>
+</body>
+</html>
